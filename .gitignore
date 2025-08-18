@@ -1,0 +1,11 @@
+*.pyc
+
+/.venv
+/checkpoints
+/dataset
+/gravure
+/masque
+/mur
+/out
+/test_imgs
+/unet_models
