@@ -6,9 +6,10 @@ from PIL import Image
 from tensorflow.keras.preprocessing import image
 from tqdm import tqdm
 
-# Utiliser un stride plus petit pour un recouvrement (overlap)
+# hyperparamètres
 stride = 256  # recouvrement de 50%
 patch_size = 512
+fun_img = lambda x: (x - 127.5) / 127.5 # Normalisation - doit être identique à l'entraînement
 
 # Losses
 def dice_loss(y_true, y_pred, smooth=1e-4):
@@ -55,14 +56,13 @@ def main(img_path, model_path):
 
     # Charger l'image d'entrée complète
     orig_img = image.load_img(img_path)
-    orig_img_array = image.img_to_array(orig_img)
+    orig_img_array = fun_img(image.img_to_array(orig_img))
     orig_height, orig_width = orig_img_array.shape[:2]
 
     # Préparer une image de sortie vide (1 canal pour noir et blanc)
     result_img = np.zeros((orig_height, orig_width, 1), dtype=np.float32)
     count_map = np.zeros((orig_height, orig_width, 1), dtype=np.float32)
 
-    total_patches = ((orig_height - 1) // stride + 1) * ((orig_width - 1) // stride + 1)
     patch_coords = [(y, x) for y in range(0, orig_height, stride) for x in range(0, orig_width, stride)]
     for idx, (y, x) in enumerate(tqdm(patch_coords, desc="Progression", unit="patch")):
         patch = orig_img_array[y:y+patch_size, x:x+patch_size, :]
@@ -70,7 +70,7 @@ def main(img_path, model_path):
         pad_w = patch_size - patch.shape[1]
         if pad_h > 0 or pad_w > 0:
             patch = np.pad(patch, ((0, pad_h), (0, pad_w), (0,0)), mode='constant')
-        patch = np.expand_dims(patch, axis=0) / 255.0
+        patch = np.expand_dims(patch, axis=0)
         pred = model.predict(patch, verbose=0)[0]
         if pred.shape[-1] > 1:
             pred = pred[..., 0:1]

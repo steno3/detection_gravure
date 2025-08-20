@@ -28,7 +28,7 @@ class DataGenerator(Sequence):
     """
     def __init__(self, data_names, batch_size, epoch_size, patch_size, img_folder, groundtruth_folder, mask_folder,
                 pas_rotation=10, 
-                noise_scale=-1, noise_intensity=1, noise_width=0.5,
+                noise_scale=-1, noise_intensity=1, noise_width=0.5, # TODO changer le fonctionnement du bruit -> bruit angulaire
                 fun_img=lambda x: (x - 127.5) / 127.5,
                 fun_gt=lambda x: 1 - x / 255.0):
         self.data_names = data_names
