@@ -124,6 +124,20 @@ def rotate_matrix(arr, angle, normals=False):
 
     return np.array(rotated_img, dtype=np.float32)
 
+def flip_normal(arr):
+    """ Flip the normal map horizontally.
+    mirroring the x-axis of the array.
+    """
+    # if arr.ndim == 3 and arr.shape[2] == 3:
+    #     arr = arr[..., :2]
+    arr = np.flip(arr, axis=1)
+
+    # Mirror the normal vectors with the vertical-up (yz) plane
+    arr[..., 0] = -arr[..., 0]
+
+    return arr
+
+
 def process_images(input_dir, output_dir, normals=False):
     os.makedirs(output_dir, exist_ok=True)
     for fname in os.listdir(input_dir):

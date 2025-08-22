@@ -5,16 +5,18 @@ from src.dataGenerator import DataGenerator
 
 def main():
     data_names = ["os_0.png"]
-    batch_size = 2
+    batch_size = 1
     epoch_size = 10
     patch_size = 512
     img_folder = "./dataset/data_nino_gen/normale"
     groundtruth_folder = "./dataset/data_nino_gen/gravure"
     mask_folder = "./dataset/data_nino_gen/masque"
-    pas_rotation = 10
+    rotation_step = 10
     noise_scale = 64
-    noise_intensity = 0.2
+    noise_intensity = 0.5
     noise_width = 0.4
+    rescale = 1.5
+    flip = True
 
     gen = DataGenerator(
         data_names, 
@@ -24,10 +26,12 @@ def main():
         img_folder, 
         groundtruth_folder, 
         mask_folder, 
-        pas_rotation=pas_rotation, 
+        rotation_step=rotation_step, 
         noise_scale=noise_scale,
         noise_intensity=noise_intensity,
-        noise_width=noise_width
+        noise_width=noise_width,
+        rescale=rescale,
+        flip=flip
     )
     # Tester le générateur
     # for i in range(len(gen)):

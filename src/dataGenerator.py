@@ -4,6 +4,7 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import os
 import numpy as np
 import tensorflow as tf
+import cv2
 
 import src.select_patch as sp
 import src.rotate_dup as rot
@@ -23,12 +24,16 @@ class DataGenerator(Sequence):
         noise_scale (int): Scale of the low-frequency noise to be added to the images. If -1, no noise is added.
         noise_intensity (float): Intensity of the low-frequency noise [0, 1].
         noise_width (float): Width of the noise band [0, 1] (scale from center).
+        rescale (float): Rescaling factor for the images (patches are bigger when selected and then rescaled to patch_size).
+        flip (bool): Whether to apply random horizontal flipping to the images.
         fun_img (function): Function to apply to the image data (default normalizes the image in [-1, 1]).
         fun_gt (function): Function to apply to the ground truth data (default normalizes the image in [0, 1]).
     """
     def __init__(self, data_names, batch_size, epoch_size, patch_size, img_folder, groundtruth_folder, mask_folder,
-                pas_rotation=10, 
-                noise_scale=-1, noise_intensity=1, noise_width=0.5, # TODO changer le fonctionnement du bruit -> bruit angulaire
+                rotation_step=10, 
+                noise_scale=-1, noise_intensity=1, noise_width=0.5, # TODO: changer le fonctionnement du bruit -> bruit angulaire
+                rescale=1.0,
+                flip=False,
                 fun_img=lambda x: (x - 127.5) / 127.5,
                 fun_gt=lambda x: 1 - x / 255.0):
         self.data_names = data_names
@@ -37,8 +42,10 @@ class DataGenerator(Sequence):
         self.patch_size = patch_size
         self.img_data = DataGenerator.load_data_from_folder(img_folder, data_names, color_mode="rgb")
         self.groundtruth_data = DataGenerator.load_data_from_folder(groundtruth_folder, data_names, color_mode="grayscale", fun_traitement=fun_gt)
-        self.pas_rotation = pas_rotation
+        self.rotation_step = rotation_step
         self.noise = (noise_scale, noise_intensity, noise_width)
+        self.rescale = rescale
+        self.flip = flip
         self.patch_coords, self.patch_coords_size = DataGenerator.get_patch_coords_and_counts(data_names, patch_size, mask_folder)
         self.fun_img = fun_img
         self.fun_gt = fun_gt
@@ -65,19 +72,37 @@ class DataGenerator(Sequence):
             if coords_pool_size == 0:
                 print(f"No valid patch found for {img_name}. Skipping this image.")
                 continue
+
             # Randomly select a patch coordinate
             idx = np.random.randint(0, coords_pool_size)
             x, y = coords_pool[idx]
 
-            # Extract the patch
-            patch_img = img[y:y+self.patch_size, x:x+self.patch_size]
-            patch_gt = gt[y:y+self.patch_size, x:x+self.patch_size]
+            # Apply random scaling if specified and extract the patch
+            if self.rescale > 1.0:
+                # random scale in [1.0, self.rescale)
+                scale_factor = np.random.uniform(1.0, self.rescale)
+                n_y, n_x = int(y + self.patch_size * scale_factor), int(x + self.patch_size * scale_factor)
+                patch_img = img[y:n_y, x:n_x]
+                patch_gt = gt[y:n_y, x:n_x]
+                # Resize back to patch_size
+                patch_img = cv2.resize(patch_img, (self.patch_size, self.patch_size))
+                patch_gt = cv2.resize(patch_gt, (self.patch_size, self.patch_size))
+                
+            else:
+                patch_img = img[y:y+self.patch_size, x:x+self.patch_size]
+                patch_gt = gt[y:y+self.patch_size, x:x+self.patch_size]
+            
             # Sizes
             # print(f"* Patch size: {patch_img.shape}, Ground truth size: {patch_gt.shape}")
 
+            # Apply flipping if specified (with a 50% chance)
+            if self.flip and np.random.rand() > 0.5:
+                patch_img = rot.flip_normal(patch_img)
+                patch_gt = np.flip(patch_gt, axis=1)
+
             # Apply random rotation if specified
-            if self.pas_rotation > 0:
-                range_angle = np.arange(0, 360, self.pas_rotation)
+            if self.rotation_step > 0:
+                range_angle = np.arange(0, 360, self.rotation_step)
                 angle = np.random.choice(range_angle)
                 patch_img = rot.rotate_matrix(patch_img, angle, normals=True)
                 patch_gt = rot.rotate_matrix(patch_gt, angle, normals=False)
