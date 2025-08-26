@@ -13,8 +13,7 @@ def main():
     mask_folder = "./dataset/data_nino_gen/masque"
     rotation_step = 10
     noise_scale = 64
-    noise_intensity = 0.5
-    noise_width = 0.4
+    noise_max_angle = 10
     rescale = 1.5
     flip = True
 
@@ -28,8 +27,7 @@ def main():
         mask_folder, 
         rotation_step=rotation_step, 
         noise_scale=noise_scale,
-        noise_intensity=noise_intensity,
-        noise_width=noise_width,
+        noise_max_angle=noise_max_angle,
         rescale=rescale,
         flip=flip
     )

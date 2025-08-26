@@ -3,7 +3,7 @@ import sys
 import cv2
 import os
 
-import src.gen_lowfreq_img as lfnoise
+import lowfreq_img as lfnoise
 
 def load_normals_png(file_path):
     # Charge un champ de normales depuis un fichier PNG (format RGB, valeurs [0,255] -> [-1,1])

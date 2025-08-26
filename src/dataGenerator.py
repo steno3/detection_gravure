@@ -8,7 +8,8 @@ import cv2
 
 import src.select_patch as sp
 import src.rotate_dup as rot
-from src.add_normals import add_noise_to_normals
+import src.lowfreq_img as lfnoise
+#from src.add_normals import add_noise_to_normals
 
 class DataGenerator(Sequence):
     """ Generates data for Keras models.
@@ -21,17 +22,16 @@ class DataGenerator(Sequence):
         groundtruth_folder (str): Path to the folder containing the ground truth images.
         mask_folder (str): Path to the folder containing the mask images.
         rotation (int): Degree of random rotation to apply to the patches. If -1, no rotation is applied.
-        noise_scale (int): Scale of the low-frequency noise to be added to the images. If -1, no noise is added.
-        noise_intensity (float): Intensity of the low-frequency noise [0, 1].
-        noise_width (float): Width of the noise band [0, 1] (scale from center).
-        rescale (float): Rescaling factor for the images (patches are bigger when selected and then rescaled to patch_size).
+        noise_scale (int): Scale of the gaussian filter for the noise. If -1, no noise is added.
+        noise_max_angle (float): Maximum angle in degree for the noise rotation. Used only if noise_scale > 0.
+        rescale (float): Rescaling factor for the images (patches are (size*rescale) when selected and then rescaled to patch_size).
         flip (bool): Whether to apply random horizontal flipping to the images.
         fun_img (function): Function to apply to the image data (default normalizes the image in [-1, 1]).
         fun_gt (function): Function to apply to the ground truth data (default normalizes the image in [0, 1]).
     """
     def __init__(self, data_names, batch_size, epoch_size, patch_size, img_folder, groundtruth_folder, mask_folder,
                 rotation_step=10, 
-                noise_scale=-1, noise_intensity=1, noise_width=0.5, # TODO: changer le fonctionnement du bruit -> bruit angulaire
+                noise_scale=-1, noise_max_angle=5,
                 rescale=1.0,
                 flip=False,
                 fun_img=lambda x: (x - 127.5) / 127.5,
@@ -43,7 +43,7 @@ class DataGenerator(Sequence):
         self.img_data = DataGenerator.load_data_from_folder(img_folder, data_names, color_mode="rgb")
         self.groundtruth_data = DataGenerator.load_data_from_folder(groundtruth_folder, data_names, color_mode="grayscale", fun_traitement=fun_gt)
         self.rotation_step = rotation_step
-        self.noise = (noise_scale, noise_intensity, noise_width)
+        self.noise = (noise_scale, noise_max_angle)
         self.rescale = rescale
         self.flip = flip
         self.patch_coords, self.patch_coords_size = DataGenerator.get_patch_coords_and_counts(data_names, patch_size, mask_folder)
@@ -112,7 +112,8 @@ class DataGenerator(Sequence):
 
             # Apply low-frequency noise if specified
             if self.noise[0] > 0:
-                patch_img = add_noise_to_normals(patch_img, size=self.patch_size, scale=self.noise[0], intensity=self.noise[1], width=self.noise[2])
+                #patch_img = add_noise_to_normals(patch_img, size=self.patch_size, scale=self.noise[0], intensity=self.noise[1], width=self.noise[2])
+                patch_img = lfnoise.normal_rotation_noise(patch_img, scale=self.noise[0], angle_max=self.noise[1])
 
             # Append the patch to the batch
             images.append(patch_img)
@@ -123,7 +124,7 @@ class DataGenerator(Sequence):
         return X, Y
 
     def on_epoch_end(self):
-        # We can shuffle the data here if needed
+        # We can do funny stuff here
         pass
 
     @staticmethod
