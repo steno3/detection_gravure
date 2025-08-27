@@ -109,16 +109,16 @@ def normal_rotation_noise(normal, scale=64, angle_max=5):
     """
     # direction matrix
     n = noise3D(size=normal.shape[0], scale=scale, intensity=1)
-    n = n / np.linalg.norm(n, axis=-1, keepdims=True)
+    n = n / (np.linalg.norm(n, axis=-1, keepdims=True) + 1e-6)
 
     # angle matrix
     a = angle_noise(size=normal.shape[0], scale=scale, angle=angle_max)
 
     # Rotation
     R = axis_angle_to_matrix(n, np.deg2rad(a))
-    print(R[normal.shape[0]//2, normal.shape[1]//2])
-    print(a[normal.shape[0]//2, normal.shape[1]//2])
-    print(n[normal.shape[0]//2, normal.shape[1]//2])
+    # print(R[normal.shape[0]//2, normal.shape[1]//2])
+    # print(a[normal.shape[0]//2, normal.shape[1]//2])
+    # print(n[normal.shape[0]//2, normal.shape[1]//2])
 
     normal = np.einsum('...ij,...j->...i', R, normal)
 

@@ -5,8 +5,8 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
+import scipy.ndimage as ndi
 
-import src.select_patch as sp
 import src.rotate_dup as rot
 import src.lowfreq_img as lfnoise
 #from src.add_normals import add_noise_to_normals
@@ -20,7 +20,7 @@ class DataGenerator(Sequence):
         patch_size (int): Size of the patches to be extracted.
         img_folder (str): Path to the folder containing the input images.
         groundtruth_folder (str): Path to the folder containing the ground truth images.
-        mask_folder (str): Path to the folder containing the mask images.
+        patch_ratio (float): Ratio of the image to be used for patch extraction. In (0, 1]
         rotation (int): Degree of random rotation to apply to the patches. If -1, no rotation is applied.
         noise_scale (int): Scale of the gaussian filter for the noise. If -1, no noise is added.
         noise_max_angle (float): Maximum angle in degree for the noise rotation. Used only if noise_scale > 0.
@@ -29,7 +29,8 @@ class DataGenerator(Sequence):
         fun_img (function): Function to apply to the image data (default normalizes the image in [-1, 1]).
         fun_gt (function): Function to apply to the ground truth data (default normalizes the image in [0, 1]).
     """
-    def __init__(self, data_names, batch_size, epoch_size, patch_size, img_folder, groundtruth_folder, mask_folder,
+    def __init__(self, data_names, batch_size, epoch_size, patch_size, img_folder, groundtruth_folder, 
+                patch_ratio=0.6,
                 rotation_step=10, 
                 noise_scale=-1, noise_max_angle=5,
                 rescale=1.0,
@@ -46,7 +47,7 @@ class DataGenerator(Sequence):
         self.noise = (noise_scale, noise_max_angle)
         self.rescale = rescale
         self.flip = flip
-        self.patch_coords, self.patch_coords_size = DataGenerator.get_patch_coords_and_counts(data_names, patch_size, mask_folder)
+        self.patch_coords, self.patch_coords_size = DataGenerator.get_patch_coords_and_counts(data_names, patch_size, groundtruth_folder, patch_ratio)
         self.fun_img = fun_img
         self.fun_gt = fun_gt
         self.on_epoch_end()
@@ -75,7 +76,7 @@ class DataGenerator(Sequence):
 
             # Randomly select a patch coordinate
             idx = np.random.randint(0, coords_pool_size)
-            x, y = coords_pool[idx]
+            y, x = coords_pool[idx]
 
             # Apply random scaling if specified and extract the patch
             if self.rescale > 1.0:
@@ -84,6 +85,9 @@ class DataGenerator(Sequence):
                 n_y, n_x = int(y + self.patch_size * scale_factor), int(x + self.patch_size * scale_factor)
                 patch_img = img[y:n_y, x:n_x]
                 patch_gt = gt[y:n_y, x:n_x]
+                print(img.shape)
+                print(patch_img.shape, patch_gt.shape, scale_factor)
+                print(x, y, n_x, n_y)
                 # Resize back to patch_size
                 patch_img = cv2.resize(patch_img, (self.patch_size, self.patch_size))
                 patch_gt = cv2.resize(patch_gt, (self.patch_size, self.patch_size))
@@ -148,22 +152,32 @@ class DataGenerator(Sequence):
         return img_data
 
     @staticmethod
-    def get_patch_coords_and_counts(data_names, patch_size, mask_folder):
+    def get_patch_coords_and_counts(data_names, patch_size, gt_folder, patch_ratio):
         """
-        Get the coordinates of patches from the mask image.
+        Get the coordinates of patches from the ground truth image.
         Args:
             data_names (list): List of image file names.
             patch_size (int): Size of the patches to be extracted.
-            mask_folder (str): Path to the folder containing the mask images.
+            gt_folder (str): Path to the folder containing the ground truth images.
+            patch_ratio (float): Ratio of the image to be used for patch extraction. In (0, 1]
+        Returns:
+            Tuple[List[np.ndarray], List[int]]: A tuple containing the coordinates of the patches and their counts by image.
         """
         coords = []
         counts = []
         for name in data_names:
-            mask_path = os.path.join(mask_folder, name)
-            mask = load_img(mask_path, color_mode="grayscale")
-            mask_arr = np.array(mask)
-            coo, count = sp.find_white_zones(mask_arr, patch_size)
+            gt_path = os.path.join(gt_folder, name)
+            gt = load_img(gt_path, color_mode="grayscale")
+            gt_arr = np.array(gt)
+            arr = (1 - gt_arr / 255.0).astype(np.uint8)
+            nb_iter = int(patch_size * patch_ratio)
+
+            # Dilation - we could change structure connectivity to match the data augmentation
+            arr = ndi.binary_dilation(arr, iterations=nb_iter)
+            coo = np.argwhere(arr)
+            coo = coo - (patch_size // 2, patch_size // 2)
+
             coords.append(coo)
-            counts.append(count)
-            print(f"* Found {count} valid patches in mask: {name}")
+            counts.append(len(coo))
+            print(f"* Found {len(coo)} valid patches in {name}")
         return coords, counts

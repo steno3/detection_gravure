@@ -10,7 +10,7 @@ def main():
     patch_size = 512
     img_folder = "./dataset/data_nino_gen/normale"
     groundtruth_folder = "./dataset/data_nino_gen/gravure"
-    mask_folder = "./dataset/data_nino_gen/masque"
+    patch_ratio = 0.5
     rotation_step = 10
     noise_scale = 64
     noise_max_angle = 10
@@ -24,7 +24,7 @@ def main():
         patch_size, 
         img_folder, 
         groundtruth_folder, 
-        mask_folder, 
+        patch_ratio=patch_ratio,
         rotation_step=rotation_step, 
         noise_scale=noise_scale,
         noise_max_angle=noise_max_angle,
