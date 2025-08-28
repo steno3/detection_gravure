@@ -116,6 +116,7 @@ def normal_rotation_noise(normal, scale=64, angle_max=5):
 
     # Rotation
     R = axis_angle_to_matrix(n, np.deg2rad(a))
+    # print(normal.shape)
     # print(R[normal.shape[0]//2, normal.shape[1]//2])
     # print(a[normal.shape[0]//2, normal.shape[1]//2])
     # print(n[normal.shape[0]//2, normal.shape[1]//2])

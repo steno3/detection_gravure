@@ -85,9 +85,9 @@ class DataGenerator(Sequence):
                 n_y, n_x = int(y + self.patch_size * scale_factor), int(x + self.patch_size * scale_factor)
                 patch_img = img[y:n_y, x:n_x]
                 patch_gt = gt[y:n_y, x:n_x]
-                print(img.shape)
-                print(patch_img.shape, patch_gt.shape, scale_factor)
-                print(x, y, n_x, n_y)
+                # print(img.shape)
+                # print(patch_img.shape, patch_gt.shape, scale_factor)
+                # print(x, y, n_x, n_y)
                 # Resize back to patch_size
                 patch_img = cv2.resize(patch_img, (self.patch_size, self.patch_size))
                 patch_gt = cv2.resize(patch_gt, (self.patch_size, self.patch_size))
@@ -114,7 +114,7 @@ class DataGenerator(Sequence):
             # Here to avoid issues with format changes in rotation
             patch_img = self.fun_img(patch_img)
 
-            # Apply low-frequency noise if specified
+            # Apply low-frequency angular noise if specified
             if self.noise[0] > 0:
                 #patch_img = add_noise_to_normals(patch_img, size=self.patch_size, scale=self.noise[0], intensity=self.noise[1], width=self.noise[2])
                 patch_img = lfnoise.normal_rotation_noise(patch_img, scale=self.noise[0], angle_max=self.noise[1])
@@ -176,6 +176,9 @@ class DataGenerator(Sequence):
             arr = ndi.binary_dilation(arr, iterations=nb_iter)
             coo = np.argwhere(arr)
             coo = coo - (patch_size // 2, patch_size // 2)
+            # Filter out-of-bounds coordinates
+            coo = coo[(coo[:, 0] >= 0) & (coo[:, 1] >= 0)]
+            coo = coo[(coo[:, 0] <= gt_arr.shape[0] - patch_size) & (coo[:, 1] <= gt_arr.shape[1] - patch_size)]
 
             coords.append(coo)
             counts.append(len(coo))
