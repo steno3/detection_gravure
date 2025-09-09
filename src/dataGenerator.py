@@ -16,7 +16,7 @@ class DataGenerator(Sequence):
     Args:
         data_names (list): List of image file names.
         batch_size (int): Size of the batches to be generated.
-        epoch_size (int): Total number of samples to be generated per epoch.
+        epoch_size (int): Number of batches to be generated per epoch.
         patch_size (int): Size of the patches to be extracted.
         img_folder (str): Path to the folder containing the input images.
         groundtruth_folder (str): Path to the folder containing the ground truth images.
@@ -53,7 +53,7 @@ class DataGenerator(Sequence):
         self.on_epoch_end()
 
     def __len__(self):
-        return int(np.ceil(self.epoch_size / self.batch_size))
+        return self.epoch_size
 
     def __getitem__(self, index):
         """
