@@ -4,12 +4,12 @@ from tensorflow.keras.preprocessing.image import array_to_img
 from src.dataGenerator import DataGenerator
 
 def main():
-    data_names = ["os_0.png"]
+    data_names = ["56751-25-RECTO.JPG"]
     batch_size = 1
     epoch_size = 10
     patch_size = 512
-    img_folder = "./dataset/data_nino_gen/normale"
-    groundtruth_folder = "./dataset/data_nino_gen/gravure"
+    img_folder = "./dataset/data_nino_limeuil/one_light"
+    groundtruth_folder = "./dataset/data_nino_limeuil/gravure"
     patch_ratio = 0.5
     rotation_step = 10
     noise_scale = 64
@@ -29,7 +29,10 @@ def main():
         noise_scale=noise_scale,
         noise_max_angle=noise_max_angle,
         rescale=rescale,
-        flip=flip
+        flip=flip,
+        inputs_are_normals=False,
+        add_padding_needed=True,
+        fun_img=lambda x: x/255.0
     )
     # Tester le générateur
     # for i in range(len(gen)):
@@ -40,7 +43,7 @@ def main():
     
     # Afficher la premiere image et son masque
     first_img_batch, first_mask_batch = gen[0]
-    first_img = (first_img_batch[0] + 1) / 2  # Revert normalization
+    first_img = (first_img_batch[0])# + 1) / 2  # Revert normalization if inputs are normals
     first_mask = first_mask_batch[0] # Revert normalization
 
     # Convert images to uint8 for saving

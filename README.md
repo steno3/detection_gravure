@@ -49,6 +49,7 @@ The main workflow involves preparing datasets, augmenting them with various nois
 1. **Ready your dataset**
 
     - Place your training images and ground truth masks in separate folders (no need to crop them, it is done in the data generator).
+    Corresponding data should have the same names.
     The ground truth images should be black lines on white backgrounds (colors are inversed after that).
     - Update paths in the notebooks if needed.
 
