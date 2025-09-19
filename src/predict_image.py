@@ -10,6 +10,7 @@ from tqdm import tqdm
 stride = 256  # recouvrement de 50%
 patch_size = 512
 fun_img = lambda x: (x - 127.5) / 127.5 # Normalisation - doit être identique à l'entraînement
+# fun_img = lambda x: x / 255.0
 
 # Losses
 def dice_loss(y_true, y_pred, smooth=1e-4):
@@ -45,7 +46,7 @@ def f1_score_metric(y_true, y_pred):
     return f1
 
 # Main
-def main(img_path, model_path):
+def main(img_path, model_path, mask_path=None):
     # Charge le modèle Keras sauvegardé au format .h5
     try:
         model = tf.keras.models.load_model(model_path, custom_objects={'bce_dice_loss':bce_dice_loss, 'focal_dice_loss': focal_dice_loss, 'dice_loss': dice_loss, 'f1_score_metric': f1_score_metric})
@@ -54,10 +55,29 @@ def main(img_path, model_path):
         print(f"Erreur lors du chargement du modèle : {e}")
         sys.exit(1)
 
+    # Vérifie si le chemin d'entrée est un dossier ou un fichier
+    if os.path.isdir(img_path):
+        img_files = [os.path.join(img_path, f) for f in os.listdir(img_path) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp'))]
+    else:
+        img_files = [img_path]
+
+    for img_file in img_files:
+        print(f"Traitement de l'image : {img_file} ({img_files.index(img_file)+1} sur {len(img_files)})")
+        process_image(img_file, model, mask_path)
+
+
+def process_image(img_path, model, mask_path=None):
     # Charger l'image d'entrée complète
     orig_img = image.load_img(img_path)
     orig_img_array = fun_img(image.img_to_array(orig_img))
     orig_height, orig_width = orig_img_array.shape[:2]
+
+    # Charger le masque si fourni
+    if mask_path:
+        mask_img = image.load_img(mask_path, color_mode='grayscale', target_size=(orig_height, orig_width))
+        mask_array = image.img_to_array(mask_img) > 127  # seuil binaire
+        if mask_array.shape[-1] == 3:
+            mask_array = mask_array[..., 0:1]
 
     # Préparer une image de sortie vide (1 canal pour noir et blanc)
     result_img = np.zeros((orig_height, orig_width, 1), dtype=np.float32)
@@ -65,6 +85,13 @@ def main(img_path, model_path):
 
     patch_coords = [(y, x) for y in range(0, orig_height, stride) for x in range(0, orig_width, stride)]
     for idx, (y, x) in enumerate(tqdm(patch_coords, desc="Progression", unit="patch")):
+        # passer la boucle si le patch est entièrement en dehors du masque
+        if mask_path:
+            h = min(patch_size, orig_height - y)
+            w = min(patch_size, orig_width - x)
+            if not np.all(mask_array[y:y+h, x:x+w, 0]):
+                continue
+
         patch = orig_img_array[y:y+patch_size, x:x+patch_size, :]
         pad_h = patch_size - patch.shape[0]
         pad_w = patch_size - patch.shape[1]
@@ -79,7 +106,6 @@ def main(img_path, model_path):
         result_img[y:y+h, x:x+w, 0] += (pred[:h, :w, 0] * 255).astype(np.float32)
         count_map[y:y+h, x:x+w, 0] += 1
     
-
     count_map[count_map == 0] = 1  # éviter division par zéro
     result_img = result_img / count_map
     result_img = np.clip(result_img, 0, 255).astype(np.uint8)
@@ -93,8 +119,9 @@ def main(img_path, model_path):
     print(f"Image résultat sauvegardée dans : {out_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python predict_image.py <image_path> <model_path.h5>")
+    if len(sys.argv) != 3 and len(sys.argv) != 4:
+        print("Usage: python predict_image.py <image_path/folder_path> <model_path.h5> [mask_path]")
         sys.exit(1)
 
-    main(sys.argv[1], sys.argv[2])
+    # Si un dossier est fourni, ainsi qu'un masque, le masque utilisé est le même pour toutes les images
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else None)
