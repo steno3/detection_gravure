@@ -17,6 +17,7 @@ This repository provides a set of tools and scripts for:
 - Jupyter notebooks for training and experimentation
 
 The main workflow involves preparing datasets, augmenting them with various noise and transformations, and training detection models using the provided data generator.
+The model is a U-net like CNN and the loss I used is a BCE + Dice combination.
 
 ---
 
@@ -34,7 +35,7 @@ The main workflow involves preparing datasets, augmenting them with various nois
 	```sh
 	pip install -r requirements.txt
 	```
-    You might need other dependencies depending on your computer et python version. I used python 3.8.10 with requirements_all.txt but it might be.
+    You might need other dependencies depending on your computer et python version. I used python 3.8.10 with requirements_all.txt.
 
 4. **(Optional) Install Jupyter for running notebooks:**
 	```sh
@@ -85,7 +86,7 @@ The main workflow involves preparing datasets, augmenting them with various nois
 │   ├── predict_image.py   # Script to run prediction from image and model
 │   └── rotate_dup.py
 ├── test_data_generator.py # Script to test the data generator
-├── training_from_normals.ipynb
+├── training_X_lightsdir.ipynb
 ├── training_with_datagen.ipynb
 ├── trash/                 # Experimental or legacy scripts
 │   ├── ...
