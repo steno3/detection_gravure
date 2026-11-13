@@ -1,4 +1,5 @@
 import sys
+import argparse
 import tensorflow as tf
 import numpy as np
 import os
@@ -6,11 +7,17 @@ from PIL import Image
 from tensorflow.keras.preprocessing import image
 from tqdm import tqdm
 
-# hyperparamètres
-stride = 256  # recouvrement de 50%
-patch_size = 512
-fun_img = lambda x: (x - 127.5) / 127.5 # Normalisation - doit être identique à l'entraînement
-# fun_img = lambda x: x / 255.0
+
+def get_normalization_function(norm_type):
+    """Retourne la fonction de normalisation correspondante."""
+    if norm_type == 'standard':
+        return lambda x: (x - 127.5) / 127.5
+    elif norm_type == 'simple':
+        return lambda x: x / 255.0
+    elif norm_type == 'none':
+        return lambda x: x
+    else:
+        raise ValueError(f"Type de normalisation inconnu: {norm_type}. Choix possibles: standard, simple, none")
 
 # Losses
 def dice_loss(y_true, y_pred, smooth=1e-4):
@@ -46,7 +53,7 @@ def f1_score_metric(y_true, y_pred):
     return f1
 
 # Main
-def main(img_path, model_path, mask_path=None):
+def main(img_path, model_path, mask_path=None, stride=256, patch_size=512, fun_img=None, output_dir='out', mask_threshold=127):
     # Charge le modèle Keras sauvegardé au format .h5
     try:
         model = tf.keras.models.load_model(model_path, custom_objects={'bce_dice_loss':bce_dice_loss, 'focal_dice_loss': focal_dice_loss, 'dice_loss': dice_loss, 'f1_score_metric': f1_score_metric})
@@ -63,10 +70,10 @@ def main(img_path, model_path, mask_path=None):
 
     for img_file in img_files:
         print(f"Traitement de l'image : {img_file} ({img_files.index(img_file)+1} sur {len(img_files)})")
-        process_image(img_file, model, mask_path)
+        process_image(img_file, model, mask_path, stride, patch_size, fun_img, output_dir, mask_threshold)
 
 
-def process_image(img_path, model, mask_path=None):
+def process_image(img_path, model, mask_path=None, stride=256, patch_size=512, fun_img=None, output_dir='out', mask_threshold=127):
     # Charger l'image d'entrée complète
     orig_img = image.load_img(img_path)
     orig_img_array = fun_img(image.img_to_array(orig_img))
@@ -75,7 +82,7 @@ def process_image(img_path, model, mask_path=None):
     # Charger le masque si fourni
     if mask_path:
         mask_img = image.load_img(mask_path, color_mode='grayscale', target_size=(orig_height, orig_width))
-        mask_array = image.img_to_array(mask_img) > 127  # seuil binaire
+        mask_array = image.img_to_array(mask_img) > mask_threshold  # seuil binaire
         if mask_array.shape[-1] == 3:
             mask_array = mask_array[..., 0:1]
 
@@ -112,16 +119,40 @@ def process_image(img_path, model, mask_path=None):
 
     # Convertir en image PIL en mode 'L' (noir et blanc)
     im = Image.fromarray(result_img[:, :, 0], mode='L')
-    os.makedirs('out', exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     base_name = os.path.splitext(os.path.basename(img_path))[0]
-    out_path = os.path.join('out', f"{base_name}_result.png")
+    out_path = os.path.join(output_dir, f"{base_name}_result.png")
     im.save(out_path)
     print(f"Image résultat sauvegardée dans : {out_path}")
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3 and len(sys.argv) != 4:
-        print("Usage: python predict_image.py <image_path/folder_path> <model_path.h5> [mask_path]")
-        sys.exit(1)
+def parse_args():
+    parser = argparse.ArgumentParser(description='Prédire les gravures sur des images en utilisant un modèle entraîné.')
+    parser.add_argument('image_path', type=str, help='Chemin vers l\'image ou le dossier contenant les images')
+    parser.add_argument('model_path', type=str, help='Chemin vers le modèle .h5')
+    parser.add_argument('--mask-path', type=str, default=None, help='Chemin vers le masque (optionnel)')
+    parser.add_argument('--stride', type=int, default=256, help='Stride pour le découpage en patchs (défaut: 256)')
+    parser.add_argument('--patch-size', type=int, default=512, help='Taille des patchs (défaut: 512)')
+    parser.add_argument('--norm', type=str, default='standard', choices=['standard', 'simple', 'none'], 
+                        help='Type de normalisation: standard ((x-127.5)/127.5), simple (x/255), none (défaut: standard)')
+    parser.add_argument('--output-dir', type=str, default='out', help='Dossier de sortie pour les résultats (défaut: out)')
+    parser.add_argument('--mask-threshold', type=int, default=127, help='Seuil pour le masque binaire (défaut: 127)')
+    return parser.parse_args()
 
-    # Si un dossier est fourni, ainsi qu'un masque, le masque utilisé est le même pour toutes les images
-    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else None)
+
+if __name__ == "__main__":
+    args = parse_args()
+    
+    # Obtenir la fonction de normalisation
+    fun_img = get_normalization_function(args.norm)
+    
+    # Appeler la fonction main avec tous les paramètres
+    main(
+        img_path=args.image_path,
+        model_path=args.model_path,
+        mask_path=args.mask_path,
+        stride=args.stride,
+        patch_size=args.patch_size,
+        fun_img=fun_img,
+        output_dir=args.output_dir,
+        mask_threshold=args.mask_threshold
+    )
